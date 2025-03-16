@@ -60,3 +60,5 @@ app.post("/process-pokemon", async (req, res) => {
 
 // Inicializa o servidor
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+
+// Exemplo de requisição POST para a rota /process-pokemon
