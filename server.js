@@ -11,9 +11,12 @@ const PORT = process.env.PORT || 4000;
 async function getPokemonInRange(startId, endId) {
     let pokemons = [];
 
+    console.log(`🔍 Buscando Pokémon do ID ${startId} ao ${endId}...`);
+
     for (let i = startId; i <= endId; i++) {
         try {
             const response = await axios.get(`https://pokeapi.co/api/v2/pokemon/${i}`);
+            
             let pokemon = {
                 id: response.data.id,
                 name: response.data.name,
@@ -22,43 +25,60 @@ async function getPokemonInRange(startId, endId) {
                 base_experience: response.data.base_experience,
                 types: response.data.types.map(t => t.type.name)
             };
-            
-            console.log(`Pokémon ${pokemon.name} (ID: ${pokemon.id}) - Tipos:`, pokemon.types);
+
+            console.log(`✅ Pokémon encontrado: ${pokemon.name} (ID: ${pokemon.id}) - Tipos: ${pokemon.types}`);
 
             pokemons.push(pokemon);
         } catch (error) {
-            console.error(`Erro ao obter Pokémon ID ${i}:`, error.message);
+            console.error(`❌ Erro ao obter Pokémon ID ${i}:`, error.message);
         }
     }
 
+    console.log(`✅ Total de Pokémon obtidos: ${pokemons.length}`);
     return pokemons;
 }
 
-
 // Rota para receber pedidos do Pipefy
 app.post("/process-pokemon", async (req, res) => {
-    const { startId, endId, types = [], sortBy, order } = req.body;
+    console.log("📥 Requisição recebida do Pipefy:", req.body);
 
-    if (!startId || !endId || !sortBy || !order) {
-        return res.status(400).json({ error: "Parâmetros inválidos" });
+    const { startId, endId, types = [], sortBy, order, cardId } = req.body;
+
+    // Validação dos parâmetros obrigatórios
+    if (!startId || !endId || !sortBy || !order || !cardId) {
+        console.error("❌ Parâmetros inválidos recebidos:", req.body);
+        return res.status(400).json({ error: "Parâmetros inválidos. Certifique-se de enviar startId, endId, sortBy, order e cardId." });
     }
 
     let pokemons = await getPokemonInRange(startId, endId);
 
-    // Filtragem por tipo
+    // Filtragem por tipo (caso fornecido)
     if (types.length > 0) {
+        console.log(`🛠 Filtrando Pokémon pelos tipos: ${types}`);
         pokemons = pokemons.filter(pokemon => 
             pokemon.types.some(type => types.includes(type))
         );
     }
 
-    // Ordenação
-    pokemons.sort((a, b) => (order === "asc" ? a[sortBy] - b[sortBy] : b[sortBy] - a[sortBy]));
+    // Verificação se há Pokémon após a filtragem
+    if (pokemons.length === 0) {
+        console.warn("⚠ Nenhum Pokémon encontrado após a filtragem!");
+        return res.status(200).json({ message: "Nenhum Pokémon encontrado com os critérios fornecidos.", pokemons: [] });
+    }
 
+    // Ordenação dos Pokémon
+    if (["height", "weight", "base_experience"].includes(sortBy)) {
+        console.log(`📊 Ordenando Pokémon por ${sortBy} em ordem ${order}`);
+        pokemons.sort((a, b) => (order === "asc" ? a[sortBy] - b[sortBy] : b[sortBy] - a[sortBy]));
+    } else {
+        console.error(`❌ Critério de ordenação inválido: ${sortBy}`);
+        return res.status(400).json({ error: "Critério de ordenação inválido. Use 'height', 'weight' ou 'base_experience'." });
+    }
+
+    // Retorno da resposta
+    console.log("✅ Pokémon processados com sucesso. Enviando resposta...");
     res.json({ message: "Pokémon processados com sucesso", pokemons });
 });
 
 // Inicializa o servidor
-app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
-
-// Exemplo de requisição POST para a rota /process-pokemon
+app.listen(PORT, () => console.log(`🚀 Servidor rodando na porta ${PORT}`));
