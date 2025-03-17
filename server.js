@@ -43,7 +43,7 @@ async function getPokemonInRange(startId, endId) {
 
 // Rota para receber pedidos do Pipefy
 app.post("/process-pokemon", async (req, res) => {
-    console.log("📥 Requisição recebida do Pipefy:", req.body);
+    console.log("📥 Requisição recebida do Pipefy:", req.body); // 🔹 Log para depuração
 
     let { startId, endId, types, sortBy, order, cardId } = req.body;
 
@@ -61,6 +61,8 @@ app.post("/process-pokemon", async (req, res) => {
     
     // Garante que types seja um array válido
     types = Array.isArray(types) ? types : [];
+
+    console.log(`🔍 Valores recebidos após ajustes: startId=${startId}, endId=${endId}, types=${JSON.stringify(types)}, sortBy=${sortBy}, order=${order}, cardId=${cardId}`);
 
     // Validação dos parâmetros obrigatórios
     if (!startId || !endId || !sortBy || !order || !cardId) {
