@@ -50,10 +50,17 @@ app.post("/process-pokemon", async (req, res) => {
     // Conversão de tipos para garantir que os dados estejam corretos
     startId = Number(startId);
     endId = Number(endId);
-    types = Array.isArray(types) ? types : [];
     sortBy = sortBy ? sortBy.toString() : null;
     order = order ? order.toString() : "asc";
     cardId = cardId ? cardId.toString() : null;
+
+    // 🔹 Ajusta a string de tipos caso venha como texto separado por vírgula
+    if (typeof types === "string") {
+        types = types.split(",").map(t => t.trim());
+    }
+    
+    // Garante que types seja um array válido
+    types = Array.isArray(types) ? types : [];
 
     // Validação dos parâmetros obrigatórios
     if (!startId || !endId || !sortBy || !order || !cardId) {
