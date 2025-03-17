@@ -7,110 +7,110 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
 
-// Função para aguardar um pequeno delay
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+// Mapeamento de critérios de ordenação
+const CRITERIA_MAP = {
+  "Peso": "weight",
+  "Altura": "height",
+  "Experiência Base": "base_experience"
+};
 
-// Função para obter os Pokémon no intervalo de IDs
-async function getPokemonInRange(startId, endId) {
-    let pokemons = [];
+// Função para processar Pokémon
+async function processPokemon(startId, endId, types, sortBy, order) {
+  try {
+    const pokemons = [];
+    
+    for (let id = startId; id <= endId; id++) {
+      try {
+        const response = await axios.get(`https://pokeapi.co/api/v2/pokemon/${id}`);
+        const pokemonData = response.data;
+        
+        const pokemon = {
+          id: pokemonData.id,
+          name: pokemonData.name,
+          height: pokemonData.height,
+          weight: pokemonData.weight,
+          base_experience: pokemonData.base_experience,
+          types: pokemonData.types.map(t => t.type.name)
+        };
 
-    console.log(`🔍 Buscando Pokémon do ID ${startId} ao ${endId}...`);
-
-    for (let i = startId; i <= endId; i++) {
-        try {
-            const response = await axios.get(`https://pokeapi.co/api/v2/pokemon/${i}`);
-            
-            let pokemon = {
-                id: response.data.id,
-                name: response.data.name,
-                height: response.data.height,
-                weight: response.data.weight,
-                base_experience: response.data.base_experience,
-                types: response.data.types.map(t => t.type.name)
-            };
-
-            console.log(`✅ Pokémon encontrado: ${pokemon.name} (ID: ${pokemon.id}) - Tipos: ${pokemon.types}`);
-
-            pokemons.push(pokemon);
-        } catch (error) {
-            console.error(`❌ Erro ao obter Pokémon ID ${i}:`, error.message);
+        // Filtragem por tipos
+        if (types.length === 0 || types.some(type => pokemon.types.includes(type))) {
+          pokemons.push(pokemon);
         }
+      } catch (error) {
+        console.error(`Erro no Pokémon ${id}:`, error.message);
+      }
     }
 
-    console.log(`✅ Total de Pokémon obtidos: ${pokemons.length}`);
+    // Ordenação
+    const sortField = CRITERIA_MAP[sortBy] || "weight";
+    pokemons.sort((a, b) => 
+      order.toLowerCase() === "asc" ? a[sortField] - b[sortField] : b[sortField] - a[sortField]
+    );
+
     return pokemons;
+  } catch (error) {
+    throw new Error(`Erro no processamento: ${error.message}`);
+  }
 }
 
-// Rota para receber pedidos do Pipefy
 app.post("/process-pokemon", async (req, res) => {
-    console.log("📥 Requisição recebida do Pipefy:", req.body); // 🔹 Log para depuração
-
-    let { startId, endId, types, sortBy, order, cardId } = req.body;
-
-    // Conversão de tipos para garantir que os dados estejam corretos
-    startId = Number(startId);
-    endId = Number(endId);
-    sortBy = sortBy ? sortBy.toString() : null;
-    order = order ? order.toString() : "asc";
-    cardId = cardId ? cardId.toString() : null;
-
-    // 🔹 Ajusta a string de tipos caso venha como texto separado por vírgula
-    if (typeof types === "string") {
-        types = types.split(",").map(t => t.trim());
-    }
+  try {
+    // Validação do corpo da requisição
+    const requiredFields = ["startId", "endId", "types", "sortBy", "order", "cardId"];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
     
-    // Garante que types seja um array válido
-    types = Array.isArray(types) ? types : [];
-
-    console.log(`🔍 Valores recebidos após ajustes: startId=${startId}, endId=${endId}, types=${JSON.stringify(types)}, sortBy=${sortBy}, order=${order}, cardId=${cardId}`);
-
-    // Validação dos parâmetros obrigatórios
-    if (!startId || !endId || !sortBy || !order || !cardId) {
-        console.error("❌ Parâmetros inválidos recebidos:", req.body);
-        return res.status(400).json({ 
-            error: "Parâmetros inválidos. Certifique-se de enviar startId, endId, sortBy, order e cardId." 
-        });
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        error: `Campos obrigatórios faltando: ${missingFields.join(", ")}`
+      });
     }
 
-    // Adiciona um pequeno delay antes de iniciar o processamento (simulação de atraso)
-    console.log("⏳ Aplicando pequeno delay antes do processamento...");
-    await delay(2000); // Delay de 2 segundos
+    // Processamento dos parâmetros
+    const params = {
+      startId: Number(req.body.startId),
+      endId: Number(req.body.endId),
+      types: Array.isArray(req.body.types) ? req.body.types : req.body.types.split(",").map(t => t.trim().toLowerCase()),
+      sortBy: req.body.sortBy,
+      order: req.body.order.toLowerCase(),
+      cardId: req.body.cardId
+    };
 
-    let pokemons = await getPokemonInRange(startId, endId);
-
-    // Filtragem por tipo (caso fornecido)
-    if (types.length > 0) {
-        console.log(`🛠 Filtrando Pokémon pelos tipos: ${types}`);
-        pokemons = pokemons.filter(pokemon => 
-            pokemon.types.some(type => types.includes(type))
-        );
+    // Validação adicional
+    if (params.startId > params.endId) {
+      return res.status(400).json({
+        error: "ID Final deve ser maior que ID Inicial"
+      });
     }
 
-    // Verificação se há Pokémon após a filtragem
-    if (pokemons.length === 0) {
-        console.warn("⚠ Nenhum Pokémon encontrado após a filtragem!");
-        return res.status(200).json({ 
-            message: "Nenhum Pokémon encontrado com os critérios fornecidos.", 
-            pokemons: [] 
-        });
-    }
+    // Processamento dos Pokémon
+    const pokemons = await processPokemon(
+      params.startId,
+      params.endId,
+      params.types,
+      params.sortBy,
+      params.order
+    );
 
-    // Ordenação dos Pokémon
-    const validSortFields = ["height", "weight", "base_experience"];
-    if (validSortFields.includes(sortBy)) {
-        console.log(`📊 Ordenando Pokémon por ${sortBy} em ordem ${order}`);
-        pokemons.sort((a, b) => (order === "asc" ? a[sortBy] - b[sortBy] : b[sortBy] - a[sortBy]));
-    } else {
-        console.error(`❌ Critério de ordenação inválido: ${sortBy}`);
-        return res.status(400).json({ 
-            error: `Critério de ordenação inválido. Use 'height', 'weight' ou 'base_experience'.` 
-        });
-    }
+    // Formatação da resposta para o Pipefy
+    const responseData = {
+      card_id: params.cardId,
+      pokemons: pokemons.map(p => ({
+        name: p.name,
+        id: p.id,
+        details: `Altura: ${p.height} | Peso: ${p.weight} | Exp: ${p.base_experience} | Tipos: ${p.types.join(", ")}`
+      }))
+    };
 
-    // Retorno da resposta
-    console.log("✅ Pokémon processados com sucesso. Enviando resposta...");
-    res.json({ message: "Pokémon processados com sucesso", pokemons });
+    res.status(200).json(responseData);
+    
+  } catch (error) {
+    console.error("Erro geral:", error);
+    res.status(500).json({
+      error: "Erro interno no servidor",
+      details: error.message
+    });
+  }
 });
 
-// Inicializa o servidor
-app.listen(PORT, () => console.log(`🚀 Servidor rodando na porta ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
