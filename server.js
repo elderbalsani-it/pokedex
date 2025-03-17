@@ -1,4 +1,4 @@
-Server.js que funciona sempre  require("dotenv").config();
+require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
 
