@@ -7,6 +7,9 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
 
+// Função para aguardar um pequeno delay
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 // Função para obter os Pokémon no intervalo de IDs
 async function getPokemonInRange(startId, endId) {
     let pokemons = [];
@@ -59,6 +62,10 @@ app.post("/process-pokemon", async (req, res) => {
             error: "Parâmetros inválidos. Certifique-se de enviar startId, endId, sortBy, order e cardId." 
         });
     }
+
+    // Adiciona um pequeno delay antes de iniciar o processamento (simulação de atraso)
+    console.log("⏳ Aplicando pequeno delay antes do processamento...");
+    await delay(2000); // Delay de 2 segundos
 
     let pokemons = await getPokemonInRange(startId, endId);
 
