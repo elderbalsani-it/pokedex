@@ -110,6 +110,32 @@ app.post("/process-pokemon", async (req, res) => {
     // 🔹 Converte a lista de Pokémon em um formato legível para o Pipefy
     let formattedPokemons = pokemons.map(pokemon => `- ${pokemon.name} (ID: ${pokemon.id})`).join("\n");
 
+    // 🔹 Atualizar o campo "Lista de Pokémons" do Pipefy via API
+    try {
+        await axios.post(`https://api.pipefy.com/graphql`, {
+            query: `
+                mutation {
+                    updateCardField(input: {
+                        card_id: ${cardId},
+                        field_id: "lista_de_pokemons",
+                        new_value: """${formattedPokemons}"""
+                    }) {
+                        success
+                    }
+                }
+            `
+        }, {
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${process.env.PIPEFY_API_TOKEN}`
+            }
+        });
+
+        console.log("✅ Lista de Pokémons atualizada no Pipefy!");
+    } catch (error) {
+        console.error("❌ Erro ao atualizar campo no Pipefy:", error.response ? error.response.data : error.message);
+    }
+
     // Retorno da resposta formatada
     console.log("✅ Pokémon processados com sucesso. Enviando resposta formatada...");
     res.json({ message: "Pokémon processados com sucesso", pokemons: formattedPokemons });
