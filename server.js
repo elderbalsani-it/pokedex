@@ -6,6 +6,7 @@ const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
+const PIPEFY_API_KEY = "eyJhbGciOiJIUzUxMiJ9.eyJpc3MiOiJQaXBlZnkiLCJpYXQiOjE3NDE5OTc3NTcsImp0aSI6IjY3YTU5YjAxLWU1OTktNDc1Ni04NjBkLTMwZjhjNmQxZjA1MCIsInN1YiI6MzAyNTkxMjczLCJ1c2VyIjp7ImlkIjozMDI1OTEyNzMsImVtYWlsIjoiZWxkZXJiYWxzYW5pQHlhaG9vLmNvbS5iciJ9fQ.5QVnQaahuok6vWwDPh8JFPl_Nupmw4vTUoN4wZRhNuskk5MaDPhtaA5CzdHuCWUNfVfejqGTL6dkhTTERLeUug"; // 🔹 Pegue seu token de API no Pipefy
 
 // Função para aguardar um pequeno delay
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -41,9 +42,40 @@ async function getPokemonInRange(startId, endId) {
     return pokemons;
 }
 
+// Função para atualizar o Pipefy via GraphQL
+async function updatePipefyCard(cardId, formattedList) {
+    const pipefyGraphQLUrl = "https://api.pipefy.com/graphql";
+
+    const mutationQuery = {
+        query: `
+            mutation {
+                updateCard(input: { id: ${cardId}, fields_attributes: [{ field_id: "lista_de_pok_mons", field_value: """${formattedList}""" }] }) {
+                    card {
+                        id
+                    }
+                }
+            }
+        `
+    };
+
+    try {
+        const response = await axios.post(pipefyGraphQLUrl, mutationQuery, {
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${PIPEFY_API_KEY}`
+            }
+        });
+
+        console.log("✅ Lista de Pokémons enviada para o Pipefy!");
+        return response.data;
+    } catch (error) {
+        console.error("❌ Erro ao atualizar o card no Pipefy:", error.response ? error.response.data : error.message);
+    }
+}
+
 // Rota para receber pedidos do Pipefy
 app.post("/process-pokemon", async (req, res) => {
-    console.log("📥 Requisição recebida do Pipefy:", req.body); // 🔹 Log para depuração
+    console.log("📥 Requisição recebida do Pipefy:", req.body);
 
     let { startId, endId, types, sortBy, order, cardId } = req.body;
 
@@ -91,7 +123,7 @@ app.post("/process-pokemon", async (req, res) => {
         console.warn("⚠ Nenhum Pokémon encontrado após a filtragem!");
         return res.status(200).json({ 
             message: "Nenhum Pokémon encontrado com os critérios fornecidos.", 
-            pokemons: "Nenhum Pokémon encontrado."
+            pokemons: [] 
         });
     }
 
@@ -107,38 +139,15 @@ app.post("/process-pokemon", async (req, res) => {
         });
     }
 
-    // 🔹 Converte a lista de Pokémon em um formato legível para o Pipefy
-    let formattedPokemons = pokemons.map(pokemon => `- ${pokemon.name} (ID: ${pokemon.id})`).join("\n");
+    // 🔹 Formata os Pokémon para uma lista amigável
+    let formattedList = pokemons.map(p => `🔹 ${p.name} (ID: ${p.id}) - Tipos: ${p.types.join(", ")}`).join("\n");
 
-    // 🔹 Atualizar o campo "Lista de Pokémons" do Pipefy via API
-    try {
-        await axios.post(`https://api.pipefy.com/graphql`, {
-            query: `
-                mutation {
-                    updateCardField(input: {
-                        card_id: ${cardId},
-                        field_id: "lista_de_pokemons",
-                        new_value: """${formattedPokemons}"""
-                    }) {
-                        success
-                    }
-                }
-            `
-        }, {
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${process.env.PIPEFY_API_TOKEN}`
-            }
-        });
+    // 🔹 Atualiza o Pipefy com a lista formatada
+    await updatePipefyCard(cardId, formattedList);
 
-        console.log("✅ Lista de Pokémons atualizada no Pipefy!");
-    } catch (error) {
-        console.error("❌ Erro ao atualizar campo no Pipefy:", error.response ? error.response.data : error.message);
-    }
-
-    // Retorno da resposta formatada
-    console.log("✅ Pokémon processados com sucesso. Enviando resposta formatada...");
-    res.json({ message: "Pokémon processados com sucesso", pokemons: formattedPokemons });
+    // Retorno da resposta
+    console.log("✅ Pokémon processados com sucesso. Enviando resposta...");
+    res.json({ message: "Pokémon processados com sucesso", pokemons });
 });
 
 // Inicializa o servidor
