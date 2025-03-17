@@ -75,26 +75,20 @@ async function updatePipefyCard(cardId, formattedList) {
 
 // Rota para receber pedidos do Pipefy
 app.post("/process-pokemon", async (req, res) => {
-    console.log("📥 Requisição recebida do Pipefy:", req.body);
+    console.log("📥 Requisição recebida do Pipefy:", req.body); // 🔹 LOG para depuração
 
-    let { startId, endId, types, sortBy, order, cardId } = req.body;
+    let { id_inicial, id_final, tipo_de_pokemon, crit_rio_de_ordena_o, classifica_o, cardId } = req.body;
 
     // Conversão de tipos para garantir que os dados estejam corretos
-    startId = Number(startId);
-    endId = Number(endId);
-    sortBy = sortBy ? sortBy.toString() : null;
-    order = order ? order.toString() : "asc";
-    cardId = cardId ? cardId.toString() : null;
-
-    // 🔹 Ajusta a string de tipos caso venha como texto separado por vírgula
-    if (typeof types === "string") {
-        types = types.split(",").map(t => t.trim());
-    }
-    
-    // Garante que types seja um array válido
-    types = Array.isArray(types) ? types : [];
+    let startId = Number(id_inicial);
+    let endId = Number(id_final);
+    let sortBy = crit_rio_de_ordena_o ? crit_rio_de_ordena_o.toString() : null;
+    let order = classifica_o ? classifica_o.toString() : "asc";
+    let types = Array.isArray(tipo_de_pokemon) ? tipo_de_pokemon : [tipo_de_pokemon];
+    let listaDePokemonsFieldId = "401223328"; // ID correto do campo de Lista de Pokémons
 
     console.log(`🔍 Valores recebidos após ajustes: startId=${startId}, endId=${endId}, types=${JSON.stringify(types)}, sortBy=${sortBy}, order=${order}, cardId=${cardId}`);
+
 
     // Validação dos parâmetros obrigatórios
     if (!startId || !endId || !sortBy || !order || !cardId) {
