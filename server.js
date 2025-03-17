@@ -91,7 +91,7 @@ app.post("/process-pokemon", async (req, res) => {
         console.warn("⚠ Nenhum Pokémon encontrado após a filtragem!");
         return res.status(200).json({ 
             message: "Nenhum Pokémon encontrado com os critérios fornecidos.", 
-            pokemons: [] 
+            pokemons: "Nenhum Pokémon encontrado."
         });
     }
 
@@ -107,9 +107,12 @@ app.post("/process-pokemon", async (req, res) => {
         });
     }
 
-    // Retorno da resposta
-    console.log("✅ Pokémon processados com sucesso. Enviando resposta...");
-    res.json({ message: "Pokémon processados com sucesso", pokemons });
+    // 🔹 Converte a lista de Pokémon em um formato legível para o Pipefy
+    let formattedPokemons = pokemons.map(pokemon => `- ${pokemon.name} (ID: ${pokemon.id})`).join("\n");
+
+    // Retorno da resposta formatada
+    console.log("✅ Pokémon processados com sucesso. Enviando resposta formatada...");
+    res.json({ message: "Pokémon processados com sucesso", pokemons: formattedPokemons });
 });
 
 // Inicializa o servidor
