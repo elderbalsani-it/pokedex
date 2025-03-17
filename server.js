@@ -42,12 +42,22 @@ async function getPokemonInRange(startId, endId) {
 app.post("/process-pokemon", async (req, res) => {
     console.log("📥 Requisição recebida do Pipefy:", req.body);
 
-    const { startId, endId, types = [], sortBy, order, cardId } = req.body;
+    let { startId, endId, types, sortBy, order, cardId } = req.body;
+
+    // Conversão de tipos para garantir que os dados estejam corretos
+    startId = Number(startId);
+    endId = Number(endId);
+    types = Array.isArray(types) ? types : [];
+    sortBy = sortBy ? sortBy.toString() : null;
+    order = order ? order.toString() : "asc";
+    cardId = cardId ? cardId.toString() : null;
 
     // Validação dos parâmetros obrigatórios
     if (!startId || !endId || !sortBy || !order || !cardId) {
         console.error("❌ Parâmetros inválidos recebidos:", req.body);
-        return res.status(400).json({ error: "Parâmetros inválidos. Certifique-se de enviar startId, endId, sortBy, order e cardId." });
+        return res.status(400).json({ 
+            error: "Parâmetros inválidos. Certifique-se de enviar startId, endId, sortBy, order e cardId." 
+        });
     }
 
     let pokemons = await getPokemonInRange(startId, endId);
@@ -63,16 +73,22 @@ app.post("/process-pokemon", async (req, res) => {
     // Verificação se há Pokémon após a filtragem
     if (pokemons.length === 0) {
         console.warn("⚠ Nenhum Pokémon encontrado após a filtragem!");
-        return res.status(200).json({ message: "Nenhum Pokémon encontrado com os critérios fornecidos.", pokemons: [] });
+        return res.status(200).json({ 
+            message: "Nenhum Pokémon encontrado com os critérios fornecidos.", 
+            pokemons: [] 
+        });
     }
 
     // Ordenação dos Pokémon
-    if (["height", "weight", "base_experience"].includes(sortBy)) {
+    const validSortFields = ["height", "weight", "base_experience"];
+    if (validSortFields.includes(sortBy)) {
         console.log(`📊 Ordenando Pokémon por ${sortBy} em ordem ${order}`);
         pokemons.sort((a, b) => (order === "asc" ? a[sortBy] - b[sortBy] : b[sortBy] - a[sortBy]));
     } else {
         console.error(`❌ Critério de ordenação inválido: ${sortBy}`);
-        return res.status(400).json({ error: "Critério de ordenação inválido. Use 'height', 'weight' ou 'base_experience'." });
+        return res.status(400).json({ 
+            error: `Critério de ordenação inválido. Use 'height', 'weight' ou 'base_experience'.` 
+        });
     }
 
     // Retorno da resposta
